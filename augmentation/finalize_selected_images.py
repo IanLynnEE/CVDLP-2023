@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import shutil
+from copy import deepcopy
 
 from PIL import Image
 from tqdm import tqdm
@@ -20,25 +21,24 @@ def parse_args():
 
 def main():
     args = parse_args()
-    ann = get_annotation_of_selected_images(args.origin_annotation, args.selected_data_root)
-
+    gen_ann, ori_ann = get_annotation_of_selected_images(args.origin_annotation, args.selected_data_root)
     os.makedirs(args.output_dir)
-    os.makedirs(os.path.join(args.output_dir, 'generated'))
-    os.makedirs(os.path.join(args.output_dir, 'original'))
 
     with open(os.path.join(args.output_dir, 'selected_ann.json'), 'w') as f:
-        json.dump(ann, f, indent=4)
+        json.dump(gen_ann, f, indent=4)
+    with open(os.path.join(args.output_dir, 'original_selected_ann.json'), 'w') as f:
+        json.dump(ori_ann, f, indent=4)
 
-    for row in ann['images']:
+    for row in gen_ann['images']:
         shutil.copy(
             os.path.join(args.generated_data_root, row['file_name']),
-            os.path.join(args.output_dir, 'generated', row['file_name'])
+            os.path.join(args.output_dir, row['file_name'])
         )
         shutil.copy(
             os.path.join(args.origin_data_root, row['o_file_name']),
-            os.path.join(args.output_dir, 'original', row['o_file_name'])
+            os.path.join(args.output_dir, row['o_file_name'])
         )
-    get_fid(args, ann)
+    get_fid(args, gen_ann)
 
 
 def get_fid(args: argparse.Namespace, ann: dict):
@@ -58,6 +58,8 @@ def get_fid(args: argparse.Namespace, ann: dict):
         img.save(os.path.join(original_resized_dir, row['o_file_name']))
 
     os.system(f'python -m pytorch_fid --device cuda:0 {generated_resized_dir} {original_resized_dir}')
+    shutil.rmtree(generated_resized_dir)
+    shutil.rmtree(original_resized_dir)
 
 
 def get_annotation_of_selected_images(ori_ann: str, selected_dir: str):
@@ -70,12 +72,13 @@ def get_annotation_of_selected_images(ori_ann: str, selected_dir: str):
         'images': [row for row in ann['images'] if row['id'] in img_id_list],
         'annotations': [row for row in ann['annotations'] if row['image_id'] in img_id_list],
     }
+    original_selected_ann = deepcopy(selected_ann)
     img_id_to_cat_id = {row['image_id']: row['category_id'] for row in selected_ann['annotations']}
 
     for row in selected_ann['images']:
         row['o_file_name'] = row['file_name']
         row['file_name'] = f'{img_id_to_cat_id[row["id"]]}_{row["id"]:04d}.png'
-    return selected_ann
+    return selected_ann, original_selected_ann
 
 
 if __name__ == '__main__':
