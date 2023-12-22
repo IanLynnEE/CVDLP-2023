@@ -66,9 +66,6 @@ def main():
     df_post = post_process(df)
     df_post.to_json(os.path.join(args.output_dir, 'blip2_post.json'), orient='records', indent=4)
 
-    # copy_selected_images_and_annotations(df_post, args)
-
-    df.to_csv(os.path.join(args.output_dir, 'blip2.csv'), index=False)
     df_post.to_csv(os.path.join(args.output_dir, 'blip2_post.csv'), index=False)
     return
 
@@ -136,6 +133,7 @@ def prepare_annotation(df_selected: pd.DataFrame):
         k: 'first' if k != 'bbox' else lambda x: list(x) for k in df.columns
     })
     df['generated_text'] = ''
+    df['prompt'] = ''
     return df.reset_index(drop=True)
 
 
@@ -173,14 +171,25 @@ def post_process(df: pd.DataFrame):
     regex_str = r'a (?:man|person) (?:is )?\w*ing (?:in|at) '
     df['generated_text'] = df['generated_text'].str.replace(regex_str, '', regex=True)
 
-    # Remove 'a group of' and 'a ' in the beginning.
+    # Remove 'a group of' and 'many'.
     df['generated_text'] = df['generated_text'].str.replace('a group of ', '')
+    df['generated_text'] = df['generated_text'].str.replace('many ', '')
+
+    # Remove 'a ' in the beginning.
     df['generated_text'] = df['generated_text'].str.replace(r'^a ', '', regex=True)
 
     # Delete row if the label is not in the generated text.
     df['label_in_text'] = df.apply(lambda x: x['label'] in x['generated_text'], axis=1)
-    df = df[df['label_in_text']]
-    return df.drop(columns=['label_in_text'])
+    df = df[df['label_in_text']].drop(columns=['label_in_text'])
+
+    # Place this as `prompt`.
+    df['prompt'] = df.apply(
+        lambda x:
+        f'{x["generated_text"]}, {x["label"]}, marine, ocean, HD quality, high detail, '
+        f'height: {x["height"]}, width: {x["width"]}',
+        axis=1
+    )
+    return df
 
 
 if __name__ == '__main__':

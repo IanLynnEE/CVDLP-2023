@@ -4,11 +4,13 @@ GLIGEN is a generative model that can generate images from text and bounding
 boxes. We can use it to generate synthetic images for object detection. The
 generated images can be used for data augmentation during training.
 
-Two modes are supported: inpainting and generation. In inpainting mode, the
-height and width of the generated images cannot be specified directly.
+Two modes are supported: inpainting and generation.
+
+Specifying the height and width of the generated image directly will result in
+errors. The model will runs into errors in inpainting mode, and the generated
+images will contain too much objects in incorrect positions in generation mode.
 We resize the generated images to the original size of the input image instead.
 """
-
 
 import argparse
 import json
@@ -58,9 +60,7 @@ def main():
         img = Image.open(os.path.join(args.data_root, row['file_name'])).convert('RGB') if inpainting else None
 
         generated_images = pipe(
-            prompt=row['generated_text'],
-            height=row['height'] if not inpainting else None,
-            width=row['width'] if not inpainting else None,
+            prompt=row['prompt'],
             gligen_phrases=['one' + row['label'] for _ in row['bbox']],
             gligen_boxes=row['bbox'],
             gligen_inpaint_image=img,
@@ -70,8 +70,7 @@ def main():
         ).images
 
         # Resize to the original size.
-        if inpainting:
-            generated_images[0] = generated_images[0].resize((row['width'], row['height']))
+        generated_images[0] = generated_images[0].resize((row['width'], row['height']))
 
         generated_images[0].save(os.path.join(
             args.output_dir,
