@@ -34,13 +34,14 @@ def parse_args():
     parser.add_argument('--output_dir', type=str, default='outputs')
     args = parser.parse_args()
     args.precision: torch.dtype = getattr(torch, args.precision)
+    os.makedirs(args.output_dir, exist_ok=True)
     return args
 
 
 @torch.no_grad()
 def main():
     args = parse_args()
-    quantized = True if torch.cuda.get_device_properties(device).total_memory < 16 * 1024 ** 3 else False
+    quantized = True if torch.cuda.get_device_properties(device).total_memory < 16e9 else False
 
     df = prepare_annotation(select_images(args.annotation_path))
 
@@ -54,18 +55,18 @@ def main():
         model = model.to(device)
 
     for i, row in tqdm(df.iterrows(), total=len(df)):
-        img_path: str = os.path.join(args.data_root, row['file_name'])
-        img = processor(Image.open(img_path), return_tensors='pt').to(device, dtype=args.precision)
+        img = Image.open(os.path.join(args.data_root, row['file_name']))
 
-        # Without prompt.
-        generated_ids = model.generate(**img, max_new_tokens=30)
+        # Blip2ForConditionalGeneration will not take prompt.
+        inputs = processor(img, return_tensors='pt').to(device, dtype=args.precision)
+        generated_ids = model.generate(**inputs, max_new_tokens=30)
         generated_text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
         df.loc[i, 'generated_text'] = generated_text
 
     df_post = post_process(df)
     df_post.to_json(os.path.join(args.output_dir, 'blip2_post.json'), orient='records', indent=4)
 
-    copy_selected_images_and_annotations(df_post, args)
+    # copy_selected_images_and_annotations(df_post, args)
 
     df.to_csv(os.path.join(args.output_dir, 'blip2.csv'), index=False)
     df_post.to_csv(os.path.join(args.output_dir, 'blip2_post.csv'), index=False)
@@ -96,9 +97,9 @@ def select_images(annotation_path: str):
         lambda x: len(x['category_id'].unique()) == 1
     )
 
-    # Select images with less than 7 bboxes.
+    # Select images with less than 7 bboxes except for `category_id == 2`.
     df_selected = df_single_category.groupby('image_id').filter(
-        lambda x: len(x) < 7
+        lambda x: len(x) < 7 or 2 in x['category_id'].unique()
     )
 
     # Map category_id to category name.
@@ -172,50 +173,15 @@ def post_process(df: pd.DataFrame):
     regex_str = r'a (?:man|person) (?:is )?\w*ing (?:in|at) '
     df['generated_text'] = df['generated_text'].str.replace(regex_str, '', regex=True)
 
-    # Set a flag if the label is not in the generated text.
+    # Remove 'a group of' and 'a ' in the beginning.
+    df['generated_text'] = df['generated_text'].str.replace('a group of ', '')
+    df['generated_text'] = df['generated_text'].str.replace(r'^a ', '', regex=True)
+
+    # Delete row if the label is not in the generated text.
     df['label_in_text'] = df.apply(lambda x: x['label'] in x['generated_text'], axis=1)
-
-    # Set a flag if 'man' or 'person' is in the generated text.
-    df['person_in_text'] = df['generated_text'].str.contains(r'man|person')
-
-    # Remove rows with flag.
     df = df[df['label_in_text']]
-    df = df[~df['person_in_text']]
-    return df.drop(columns=['person_in_text', 'label_in_text'])
-
-
-def copy_selected_images_and_annotations(df_selected: pd.DataFrame, args: argparse.Namespace):
-    """Copy selected images and annotations to the output directory.
-
-    Args:
-        df_selected (pd.DataFrame):
-            annotation dataframe with information including selected images and corresponding bboxes
-        args (argparse.Namespace): arguments
-    """
-    output_dir = os.path.join(args.output_dir, 'selected')
-    os.makedirs(output_dir, exist_ok=True)
-
-    # Copy selected images.
-    for img_path in df_selected['file_name'].unique():
-        os.system(f'cp {os.path.join(args.data_root, img_path)} {output_dir}')
-
-    with open(args.annotation_path, 'r') as f:
-        ann_json = json.load(f)
-    selected_ann = {
-        'categories': ann_json['categories'],
-        'images': [img for img in ann_json['images'] if img['id'] in df_selected['image_id'].unique()],
-        'annotations': [ann for ann in ann_json['annotations'] if ann['image_id'] in df_selected['image_id'].unique()],
-    }
-    with open(os.path.join(output_dir, 'selected.json'), 'w') as f:
-        json.dump(selected_ann, f, indent=4)
+    return df.drop(columns=['label_in_text'])
 
 
 if __name__ == '__main__':
     main()
-
-    # # Check if the `outputs/blip2_old.csv` is the same as the `outputs/blip2.csv`.
-    # df_old = pd.read_csv('outputs/blip2_old.csv', index_col='image_id')
-    # df_new = pd.read_csv('outputs/blip2.csv', index_col='image_id')
-    # df_old['generated_text_new'] = df_new['generated_text']
-    # df_old = df_old[df_old['generated_text'] != df_old['generated_text_new']]
-    # print(df_old[['generated_text', 'generated_text_new']])
