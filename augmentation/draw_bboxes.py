@@ -5,12 +5,13 @@ import os
 import torch
 from torchvision.utils import draw_bounding_boxes
 from torchvision.io import read_image, write_png
+from tqdm import tqdm
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', '--prompt_path', type=str, default='outputs/blip2_post.json')
-    parser.add_argument('-i', '--data_root', type=str, default='outputs/generation')
+    parser.add_argument('-g', '--data_root', type=str, default='outputs/generation')
     parser.add_argument('-o', '--output_dir', type=str, default='outputs/bbox')
     args = parser.parse_args()
     os.makedirs(args.output_dir, exist_ok=True)
@@ -24,7 +25,7 @@ def main():
         prompt_list = json.load(f)
     assert isinstance(prompt_list, list), f'annotation file should be a list, but got {type(prompt_list)}'
 
-    for _, row in enumerate(prompt_list):
+    for _, row in tqdm(enumerate(prompt_list), total=len(prompt_list)):
         generated_img = read_image(os.path.join(
             args.data_root,
             f'{row["category_id"]}_{row["image_id"]:04d}.png'

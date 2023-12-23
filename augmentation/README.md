@@ -86,7 +86,7 @@ A scrpit for drawing bounding boxes on the generated images for better selection
 
 ```shell
 python draw_bboxes.py \
-    -i <path/to/generated/images/directory> \
+    -g <path/to/generated/images/directory> \
     -p <path/to/captions.json> \
     -o <path/to/output/directory>
 ```
