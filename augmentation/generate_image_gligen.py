@@ -28,8 +28,8 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-m', '--mode', type=str, choices=['inpainting', 'generation'], default='generation')
-    parser.add_argument('--data_root', type=str, default='dataset/train')
-    parser.add_argument('--annotation_path', type=str, default='outputs/blip2_post.json')
+    parser.add_argument('-i', '--data_root', type=str, default='dataset/train')
+    parser.add_argument('-p', '--prompt_path', type=str, default='outputs/blip2_post.json')
     parser.add_argument('-o', '--output_root', type=str, default='outputs')
     args = parser.parse_args()
 
@@ -53,10 +53,10 @@ def main():
     ).to(device)
     pipe.set_progress_bar_config(disable=True)
 
-    with open(args.annotation_path, 'r') as f:
-        ann_list = json.load(f)
+    with open(args.prompt_path, 'r') as f:
+        prompt_list = json.load(f)
 
-    for _, row in tqdm(enumerate(ann_list), total=len(ann_list)):
+    for _, row in tqdm(enumerate(prompt_list), total=len(prompt_list)):
         img = Image.open(os.path.join(args.data_root, row['file_name'])).convert('RGB') if inpainting else None
 
         generated_images = pipe(

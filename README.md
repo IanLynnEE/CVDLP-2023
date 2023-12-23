@@ -4,6 +4,8 @@ This project shows how to fine-tune a pretrained [Co-DETR](https://github.com/Se
 
 ## Installation
 
+### Install MMDetection
+
 This project is based on [MMDetection v3.2.0](https://github.com/open-mmlab/mmdetection/releases/tag/v3.2.0). Please follow the official [installation guide](https://mmdetection.readthedocs.io/en/v3.2.0/get_started.html). For example, you can install it via pip:
 
 **Step 0.** Create and activate a virtual environment (optional). Python 3.8 is recommended.
@@ -33,6 +35,10 @@ pip install torchmetrics
 ```shell
 export PYTHONPATH=<path_to_project>:$PYTHONPATH
 ```
+
+### Install Diffusers (Optional)
+
+If the imbalance of the dataset is severe, a guideline for using generative models to augment the dataset is provided in [Augmentation]('./augmentation/README.md).
 
 
 
@@ -73,7 +79,7 @@ python tools/create_fake_ann_file.py dataset/test dataset/annotations/
 
 ## Experiments
 
-All experiments are conducted on a single NVIDIA GeForce RTX 3060 GPU.
+All experiments are conducted on a single NVIDIA GeForce RTX 3060 GPU except for the augmentation part, which is conducted on a single NVIDIA GeForce RTX 4080 GPU.
 
 ### Fine-tune the model
 
@@ -113,6 +119,10 @@ python tools/demo.py <image_path> configs/codino/co_dino_5scale_r50_1xb1_48e.py 
 
 Results will be saved under `outputs/`.
 
+
+### Further fine-tune the model by augmented data
+
+Please refer to [Augmentation]('./augmentation/README.md') for details.
 
 
 ## Acknowledgement
