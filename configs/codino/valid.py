@@ -1,4 +1,4 @@
-_base_ = 'co_dino_5scale_r50_1xb1_48e.py'
+_base_ = 'co_dino_5scale_r50_1xb1_32e.py'
 
 test_dataloader = dict(
     dataset=dict(
