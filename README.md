@@ -38,7 +38,7 @@ export PYTHONPATH=<path_to_project>:$PYTHONPATH
 
 ### Install Diffusers (Optional)
 
-If the imbalance of the dataset is severe, a guideline for using generative models to augment the dataset is provided in [Augmentation]('./augmentation/README.md).
+If the imbalance of the dataset is severe, a guideline for using generative models to augment the dataset is provided in [Augmentation]('augmentation/README.md).
 
 
 
@@ -122,7 +122,7 @@ Results will be saved under `outputs/`.
 
 ### Further fine-tune the model by augmented data
 
-Please refer to [Augmentation]('./augmentation/README.md') for details.
+Please refer to [Augmentation]('augmentation/README.md') for details.
 
 
 ## Acknowledgement
